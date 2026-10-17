@@ -62,7 +62,6 @@ export default function Home() {
   const [checkins, setCheckins] = useState([]); // last 120 days, all users
   const [loading, setLoading] = useState(true);
   const [meName, setMeName] = useState(null);
-  const [editing, setEditing] = useState(null); // { id, name, target }
   const [newName, setNewName] = useState('');
   const [newTarget, setNewTarget] = useState(4);
 
@@ -175,18 +174,6 @@ export default function Home() {
     setAllUserGoals(allUserGoals.map((ug) => (ug.id === id ? { ...ug, ...patch } : ug)));
   }
 
-  async function saveGoalEdit() {
-    const name = editing.name.trim();
-    if (!name) return;
-    await supabase.from('goals').update({ name, target_days: editing.target }).eq('id', editing.id);
-    setGoals(
-      sortGoals(
-        goals.map((g) => (g.id === editing.id ? { ...g, name, target_days: editing.target } : g))
-      )
-    );
-    setEditing(null);
-  }
-
   async function addGoal() {
     const name = newName.trim();
     if (!name || !me) return;
@@ -210,20 +197,6 @@ export default function Home() {
     setAllUserGoals([...allUserGoals, ...(ug || [])]);
     setNewName('');
     setNewTarget(4);
-  }
-
-  async function removeGoal(g) {
-    const ok = window.confirm(
-      `Remove "${g.name}" for everyone? This also deletes everyone's check-ins for it.`
-    );
-    if (!ok) return;
-    await supabase.from('checkins').delete().eq('goal_id', g.id);
-    await supabase.from('user_goals').delete().eq('goal_id', g.id);
-    await supabase.from('goals').delete().eq('id', g.id);
-    setGoals(goals.filter((x) => x.id !== g.id));
-    setAllUserGoals(allUserGoals.filter((x) => x.goal_id !== g.id));
-    setCheckins(checkins.filter((c) => c.goal_id !== g.id));
-    setEditing(null);
   }
 
   if (loading) {
@@ -438,7 +411,6 @@ export default function Home() {
             const ug = userGoals.find((x) => x.goal_id === g.id);
             if (!ug) return null;
             const shownTarget = ug.use_group_default ? g.target_days : ug.custom_target;
-            const isEditing = editing && editing.id === g.id;
             return (
               <div key={g.id} className={styles.settingCard}>
                 <div className={styles.settingTop}>
@@ -486,58 +458,6 @@ export default function Home() {
                   </label>
                 </div>
 
-                {isEditing ? (
-                  <div className={styles.editBox}>
-                    <input
-                      className={styles.textInput}
-                      value={editing.name}
-                      maxLength={40}
-                      onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                    />
-                    <div className={styles.stepperRow}>
-                      <span>Group target</span>
-                      <div className={styles.stepper}>
-                        <button
-                          onClick={() =>
-                            setEditing({ ...editing, target: Math.max(1, editing.target - 1) })
-                          }
-                        >
-                          −
-                        </button>
-                        <span className={styles.stepperVal}>{editing.target}/7</span>
-                        <button
-                          onClick={() =>
-                            setEditing({ ...editing, target: Math.min(7, editing.target + 1) })
-                          }
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <div className={styles.editActions}>
-                      <button className={styles.smallBtn} onClick={saveGoalEdit}>
-                        Save
-                      </button>
-                      <button className={styles.smallBtn} onClick={() => setEditing(null)}>
-                        Cancel
-                      </button>
-                      <button
-                        className={`${styles.smallBtn} ${styles.danger}`}
-                        onClick={() => removeGoal(g)}
-                      >
-                        Remove for everyone
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    className={styles.linkBtn}
-                    style={{ marginTop: 12 }}
-                    onClick={() => setEditing({ id: g.id, name: g.name, target: g.target_days })}
-                  >
-                    Edit goal for the group
-                  </button>
-                )}
               </div>
             );
           })}
@@ -567,8 +487,7 @@ export default function Home() {
           </div>
 
           <div className={styles.note}>
-            Goal names and group targets are shared by everyone. Turning a goal off only hides it
-            for you.
+            New goals are added for the whole group. Turning a goal off only hides it for you.
           </div>
         </div>
       )}
