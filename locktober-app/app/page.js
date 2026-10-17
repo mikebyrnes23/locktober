@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import styles from './page.module.css';
 
 const GOAL_COLORS = ['#3a5fb5', '#2f6f4f', '#b5482f', '#a3762a', '#6b4fa0'];
+const HISTORY_DAYS = 120;
 
 function dateStr(d) {
   const y = d.getFullYear();
@@ -27,14 +28,43 @@ function last7Dates() {
   return dates;
 }
 
+function sortGoals(list) {
+  return [...list].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Supabase returns at most 1000 rows per request, so page through the history.
+async function fetchCheckins(startStr, endStr) {
+  let all = [];
+  let from = 0;
+  const size = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from('checkins')
+      .select('*')
+      .gte('date', startStr)
+      .lte('date', endStr)
+      .order('date')
+      .order('id')
+      .range(from, from + size - 1);
+    if (error || !data) break;
+    all = all.concat(data);
+    if (data.length < size) break;
+    from += size;
+  }
+  return all;
+}
+
 export default function Home() {
   const [tab, setTab] = useState('today');
   const [users, setUsers] = useState([]);
   const [goals, setGoals] = useState([]);
   const [allUserGoals, setAllUserGoals] = useState([]); // everyone's goal settings
-  const [checkins, setCheckins] = useState([]); // this month + last 7 days, all users
+  const [checkins, setCheckins] = useState([]); // last 120 days, all users
   const [loading, setLoading] = useState(true);
   const [meName, setMeName] = useState(null);
+  const [editing, setEditing] = useState(null); // { id, name, target }
+  const [newName, setNewName] = useState('');
+  const [newTarget, setNewTarget] = useState(4);
 
   const me = users.find((u) => u.name === meName);
   const userGoals = allUserGoals.filter((ug) => ug.user_id === me?.id);
@@ -43,38 +73,38 @@ export default function Home() {
     setLoading(true);
     const [{ data: u }, { data: g }] = await Promise.all([
       supabase.from('users').select('*'),
-      supabase.from('goals').select('*').order('name'),
+      supabase.from('goals').select('*'),
     ]);
+    const goalList = sortGoals(g || []);
     setUsers(u || []);
-    setGoals(g || []);
+    setGoals(goalList);
 
     const { data: ugAll } = await supabase.from('user_goals').select('*');
     let ugList = ugAll || [];
 
+    // make sure the current user has a settings row for every goal (covers newly added goals)
     const myUser = (u || []).find((x) => x.name === who);
-    if (myUser && !ugList.some((x) => x.user_id === myUser.id)) {
-      const inserts = (g || []).map((goal) => ({
-        user_id: myUser.id,
-        goal_id: goal.id,
-        is_on: true,
-        use_group_default: true,
-        custom_target: goal.target_days,
-      }));
-      const { data: created } = await supabase.from('user_goals').insert(inserts).select();
-      ugList = [...ugList, ...(created || [])];
+    if (myUser) {
+      const missing = goalList.filter(
+        (goal) => !ugList.some((x) => x.user_id === myUser.id && x.goal_id === goal.id)
+      );
+      if (missing.length > 0) {
+        const inserts = missing.map((goal) => ({
+          user_id: myUser.id,
+          goal_id: goal.id,
+          is_on: true,
+          use_group_default: true,
+          custom_target: goal.target_days,
+        }));
+        const { data: created } = await supabase.from('user_goals').insert(inserts).select();
+        ugList = [...ugList, ...(created || [])];
+      }
     }
     setAllUserGoals(ugList);
 
-    const dates = last7Dates();
-    const now = new Date();
-    const monthStart = dateStr(new Date(now.getFullYear(), now.getMonth(), 1));
-    const rangeStart = monthStart < dates[0] ? monthStart : dates[0];
-    const { data: c } = await supabase
-      .from('checkins')
-      .select('*')
-      .gte('date', rangeStart)
-      .lte('date', dates[6]);
-    setCheckins(c || []);
+    const start = new Date();
+    start.setDate(start.getDate() - HISTORY_DAYS);
+    setCheckins(await fetchCheckins(dateStr(start), todayStr()));
     setLoading(false);
   }
 
@@ -102,6 +132,26 @@ export default function Home() {
     setMeName(null);
   }
 
+  // consecutive days with a check-in, counting back from today
+  // (if today isn't done yet, the streak still counts through yesterday)
+  function streakFor(userId, goalId) {
+    const days = new Set(
+      checkins.filter((c) => c.user_id === userId && c.goal_id === goalId).map((c) => c.date)
+    );
+    const d = new Date();
+    if (!days.has(dateStr(d))) d.setDate(d.getDate() - 1);
+    let n = 0;
+    while (days.has(dateStr(d)) && n < HISTORY_DAYS) {
+      n++;
+      d.setDate(d.getDate() - 1);
+    }
+    return n;
+  }
+
+  function streakLabel(n) {
+    return n >= HISTORY_DAYS ? `${HISTORY_DAYS}+` : `${n}`;
+  }
+
   async function toggleToday(goalId) {
     if (!me) return;
     const today = todayStr();
@@ -123,6 +173,57 @@ export default function Home() {
   async function updateUserGoal(id, patch) {
     await supabase.from('user_goals').update(patch).eq('id', id);
     setAllUserGoals(allUserGoals.map((ug) => (ug.id === id ? { ...ug, ...patch } : ug)));
+  }
+
+  async function saveGoalEdit() {
+    const name = editing.name.trim();
+    if (!name) return;
+    await supabase.from('goals').update({ name, target_days: editing.target }).eq('id', editing.id);
+    setGoals(
+      sortGoals(
+        goals.map((g) => (g.id === editing.id ? { ...g, name, target_days: editing.target } : g))
+      )
+    );
+    setEditing(null);
+  }
+
+  async function addGoal() {
+    const name = newName.trim();
+    if (!name || !me) return;
+    const { data: created } = await supabase
+      .from('goals')
+      .insert({ name, target_days: newTarget })
+      .select();
+    if (!created || created.length === 0) return;
+    const goal = created[0];
+    const { data: ug } = await supabase
+      .from('user_goals')
+      .insert({
+        user_id: me.id,
+        goal_id: goal.id,
+        is_on: true,
+        use_group_default: true,
+        custom_target: newTarget,
+      })
+      .select();
+    setGoals(sortGoals([...goals, goal]));
+    setAllUserGoals([...allUserGoals, ...(ug || [])]);
+    setNewName('');
+    setNewTarget(4);
+  }
+
+  async function removeGoal(g) {
+    const ok = window.confirm(
+      `Remove "${g.name}" for everyone? This also deletes everyone's check-ins for it.`
+    );
+    if (!ok) return;
+    await supabase.from('checkins').delete().eq('goal_id', g.id);
+    await supabase.from('user_goals').delete().eq('goal_id', g.id);
+    await supabase.from('goals').delete().eq('id', g.id);
+    setGoals(goals.filter((x) => x.id !== g.id));
+    setAllUserGoals(allUserGoals.filter((x) => x.goal_id !== g.id));
+    setCheckins(checkins.filter((c) => c.goal_id !== g.id));
+    setEditing(null);
   }
 
   if (loading) {
@@ -203,9 +304,15 @@ export default function Home() {
             const done = checkins.some(
               (c) => c.user_id === me.id && c.goal_id === g.id && c.date === today
             );
+            const streak = streakFor(me.id, g.id);
             return (
               <div key={g.id} className={styles.goalRow}>
-                <div className={styles.goalName}>{g.name}</div>
+                <div>
+                  <div className={styles.goalName}>{g.name}</div>
+                  {streak > 0 && (
+                    <div className={styles.streak}>{streakLabel(streak)} day streak</div>
+                  )}
+                </div>
                 <button
                   className={`${styles.toggle} ${done ? styles.toggleOn : ''}`}
                   style={done ? { background: me.color, borderColor: me.color } : undefined}
@@ -244,12 +351,14 @@ export default function Home() {
                   );
                   const hits = week.filter(Boolean).length;
                   const pct = Math.min(100, Math.round((hits / target) * 100));
+                  const streak = streakFor(u.id, g.id);
                   return (
                     <div key={g.id} className={styles.goalSub}>
                       <div className={styles.goalSubTop}>
                         <span>{g.name}</span>
                         <span className={styles.subScore}>
                           {hits}/{target} · {pct}%
+                          {streak > 0 ? ` · ${streakLabel(streak)}d streak` : ''}
                         </span>
                       </div>
                       <div className={styles.barTrack}>
@@ -328,6 +437,8 @@ export default function Home() {
           {goals.map((g) => {
             const ug = userGoals.find((x) => x.goal_id === g.id);
             if (!ug) return null;
+            const shownTarget = ug.use_group_default ? g.target_days : ug.custom_target;
+            const isEditing = editing && editing.id === g.id;
             return (
               <div key={g.id} className={styles.settingCard}>
                 <div className={styles.settingTop}>
@@ -339,7 +450,7 @@ export default function Home() {
                 </div>
                 <div className={`${styles.settingBody} ${!ug.is_on ? styles.disabled : ''}`}>
                   <div className={styles.stepperRow}>
-                    <span>Target</span>
+                    <span>Your target</span>
                     <div className={styles.stepper}>
                       <button
                         onClick={() =>
@@ -349,7 +460,7 @@ export default function Home() {
                       >
                         −
                       </button>
-                      <span className={styles.stepperVal}>{ug.custom_target}/7</span>
+                      <span className={styles.stepperVal}>{shownTarget}/7</span>
                       <button
                         onClick={() =>
                           !ug.use_group_default &&
@@ -367,16 +478,98 @@ export default function Home() {
                       onChange={(e) =>
                         updateUserGoal(ug.id, {
                           use_group_default: e.target.checked,
-                          custom_target: e.target.checked ? g.target_days : ug.custom_target,
+                          custom_target: g.target_days,
                         })
                       }
                     />
                     Use group default ({g.target_days}/7)
                   </label>
                 </div>
+
+                {isEditing ? (
+                  <div className={styles.editBox}>
+                    <input
+                      className={styles.textInput}
+                      value={editing.name}
+                      maxLength={40}
+                      onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    />
+                    <div className={styles.stepperRow}>
+                      <span>Group target</span>
+                      <div className={styles.stepper}>
+                        <button
+                          onClick={() =>
+                            setEditing({ ...editing, target: Math.max(1, editing.target - 1) })
+                          }
+                        >
+                          −
+                        </button>
+                        <span className={styles.stepperVal}>{editing.target}/7</span>
+                        <button
+                          onClick={() =>
+                            setEditing({ ...editing, target: Math.min(7, editing.target + 1) })
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <div className={styles.editActions}>
+                      <button className={styles.smallBtn} onClick={saveGoalEdit}>
+                        Save
+                      </button>
+                      <button className={styles.smallBtn} onClick={() => setEditing(null)}>
+                        Cancel
+                      </button>
+                      <button
+                        className={`${styles.smallBtn} ${styles.danger}`}
+                        onClick={() => removeGoal(g)}
+                      >
+                        Remove for everyone
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className={styles.linkBtn}
+                    style={{ marginTop: 12 }}
+                    onClick={() => setEditing({ id: g.id, name: g.name, target: g.target_days })}
+                  >
+                    Edit goal for the group
+                  </button>
+                )}
               </div>
             );
           })}
+
+          <div className={styles.settingCard}>
+            <div className={styles.goalName} style={{ marginBottom: 10 }}>
+              Add a goal
+            </div>
+            <input
+              className={styles.textInput}
+              placeholder="e.g. Read 20 pages"
+              value={newName}
+              maxLength={40}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+            <div className={styles.stepperRow} style={{ marginTop: 10 }}>
+              <span>Group target</span>
+              <div className={styles.stepper}>
+                <button onClick={() => setNewTarget(Math.max(1, newTarget - 1))}>−</button>
+                <span className={styles.stepperVal}>{newTarget}/7</span>
+                <button onClick={() => setNewTarget(Math.min(7, newTarget + 1))}>+</button>
+              </div>
+            </div>
+            <button className={styles.smallBtn} onClick={addGoal} disabled={!newName.trim()}>
+              Add goal
+            </button>
+          </div>
+
+          <div className={styles.note}>
+            Goal names and group targets are shared by everyone. Turning a goal off only hides it
+            for you.
+          </div>
         </div>
       )}
 

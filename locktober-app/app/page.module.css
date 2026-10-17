@@ -327,3 +327,46 @@
   height: 5px;
   border-radius: 50%;
 }
+.streak {
+  color: var(--sub);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.editBox {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.textInput {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 9px 10px;
+  color: var(--ink);
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+.editActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.smallBtn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.smallBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.danger {
+  color: #b5482f;
+  border-color: #b5482f;
+}
