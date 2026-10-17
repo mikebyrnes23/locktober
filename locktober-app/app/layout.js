@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Locktober",
+  title: "WinterArc",
   description: "Group goal check-ins for the crew",
 };
 

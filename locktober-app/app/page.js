@@ -128,7 +128,7 @@ export default function Home() {
   if (loading) {
     return (
       <main className={styles.wrap}>
-        <h1 className={styles.h1}>Locktober</h1>
+        <h1 className={styles.h1}>WinterArc</h1>
         <div className={styles.tag}>Loading…</div>
       </main>
     );
@@ -137,7 +137,7 @@ export default function Home() {
   if (!me) {
     return (
       <main className={styles.wrap}>
-        <h1 className={styles.h1}>Locktober</h1>
+        <h1 className={styles.h1}>WinterArc</h1>
         <div className={styles.tag}>Who are you?</div>
         {users.map((u) => (
           <button key={u.id} className={styles.pickBtn} onClick={() => pickUser(u.name)}>
@@ -157,7 +157,7 @@ export default function Home() {
 
   return (
     <main className={styles.wrap}>
-      <h1 className={styles.h1}>Locktober</h1>
+      <h1 className={styles.h1}>WinterArc</h1>
       <div className={styles.banner} style={{ background: me.color }}>
         <div className={styles.bannerLabel}>Checking in as</div>
         <div className={styles.bannerName}>{me.name}</div>
