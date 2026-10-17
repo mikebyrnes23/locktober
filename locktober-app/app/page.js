@@ -6,6 +6,7 @@ import styles from './page.module.css';
 
 const GOAL_COLORS = ['#3a5fb5', '#2f6f4f', '#b5482f', '#a3762a', '#6b4fa0'];
 const HISTORY_DAYS = 120;
+const MAX_MONTHS_BACK = 12;
 
 function dateStr(d) {
   const y = d.getFullYear();
@@ -54,14 +55,31 @@ async function fetchCheckins(startStr, endStr) {
   return all;
 }
 
+function Chevron({ dir }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14171c" strokeWidth="3" strokeLinecap="square" aria-hidden="true">
+      <path d={dir === 'left' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
+    </svg>
+  );
+}
+
+function Check({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="square" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [tab, setTab] = useState('today');
   const [users, setUsers] = useState([]);
   const [goals, setGoals] = useState([]);
-  const [allUserGoals, setAllUserGoals] = useState([]); // everyone's goal settings
-  const [checkins, setCheckins] = useState([]); // last 120 days, all users
+  const [allUserGoals, setAllUserGoals] = useState([]);
+  const [checkins, setCheckins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [meName, setMeName] = useState(null);
+  const [calOffset, setCalOffset] = useState(0); // 0 = this month, -1 = last month, ...
 
   const me = users.find((u) => u.name === meName);
   const userGoals = allUserGoals.filter((ug) => ug.user_id === me?.id);
@@ -79,7 +97,7 @@ export default function Home() {
     const { data: ugAll } = await supabase.from('user_goals').select('*');
     let ugList = ugAll || [];
 
-    // make sure the current user has a settings row for every goal (covers newly added goals)
+    // make sure the current user has a settings row for every goal
     const myUser = (u || []).find((x) => x.name === who);
     if (myUser) {
       const missing = goalList.filter(
@@ -119,6 +137,8 @@ export default function Home() {
       localStorage.setItem('locktober_me', name);
     } catch (e) {}
     setMeName(name);
+    setTab('today');
+    setCalOffset(0);
     loadAll(name);
   }
 
@@ -172,11 +192,29 @@ export default function Home() {
     setAllUserGoals(allUserGoals.map((ug) => (ug.id === id ? { ...ug, ...patch } : ug)));
   }
 
+  // step through months; months older than the preloaded history are fetched on demand
+  async function goMonth(delta) {
+    const next = calOffset + delta;
+    if (next > 0 || next < -MAX_MONTHS_BACK) return;
+    setCalOffset(next);
+    const base = new Date();
+    const first = new Date(base.getFullYear(), base.getMonth() + next, 1);
+    const last = new Date(base.getFullYear(), base.getMonth() + next + 1, 0);
+    const histStart = new Date();
+    histStart.setDate(histStart.getDate() - HISTORY_DAYS);
+    if (dateStr(first) < dateStr(histStart)) {
+      const fetched = await fetchCheckins(dateStr(first), dateStr(last));
+      setCheckins((prev) => [...prev, ...fetched.filter((f) => !prev.some((p) => p.id === f.id))]);
+    }
+  }
+
   if (loading) {
     return (
       <main className={styles.wrap}>
-        <h1 className={styles.h1}>WinterArc</h1>
-        <div className={styles.tag}>Loading…</div>
+        <div className={styles.header}>
+          <div className={styles.wordmark}>WinterArc</div>
+        </div>
+        <div className={styles.subline} style={{ marginTop: 24 }}>Loading…</div>
       </main>
     );
   }
@@ -184,11 +222,13 @@ export default function Home() {
   if (!me) {
     return (
       <main className={styles.wrap}>
-        <h1 className={styles.h1}>WinterArc</h1>
-        <div className={styles.tag}>Who are you?</div>
+        <div className={styles.header}>
+          <div className={styles.wordmark}>WinterArc</div>
+        </div>
+        <div className={styles.pageTitle}>Who are you?</div>
         {users.map((u) => (
           <button key={u.id} className={styles.pickBtn} onClick={() => pickUser(u.name)}>
-            <span className={styles.pickDot} style={{ background: u.color }} />
+            <span className={styles.pickChip} style={{ background: u.color }} />
             {u.name}
           </button>
         ))}
@@ -202,13 +242,14 @@ export default function Home() {
   const today = todayStr();
   const dates = last7Dates();
 
-  // calendar setup (current month)
+  // calendar setup for the month being viewed
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const viewDate = new Date(now.getFullYear(), now.getMonth() + calOffset, 1);
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const startDow = new Date(year, month, 1).getDay();
-  const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const startDow = viewDate.getDay();
+  const monthLabel = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const goalColor = (g) => GOAL_COLORS[goals.findIndex((x) => x.id === g.id) % GOAL_COLORS.length];
 
   const tabs = [
@@ -220,53 +261,50 @@ export default function Home() {
 
   return (
     <main className={styles.wrap}>
-      <h1 className={styles.h1}>WinterArc</h1>
-      <div className={styles.banner} style={{ background: me.color }}>
-        <div className={styles.bannerLabel}>Checking in as</div>
-        <div className={styles.bannerName}>{me.name}</div>
-        <button className={styles.bannerSwitch} onClick={switchUser}>
-          not you?
+      <div className={styles.header}>
+        <div className={styles.wordmark}>WinterArc</div>
+        <button
+          className={styles.avatar}
+          style={{ background: me.color }}
+          onClick={switchUser}
+          aria-label={`Signed in as ${me.name}. Tap to switch user.`}
+        >
+          {me.name.charAt(0)}
         </button>
-      </div>
-      <div className={styles.tag}>
-        {new Date().toLocaleDateString('en-US', { weekday: 'long' })} check-in
-      </div>
-
-      <div className={styles.tabs}>
-        {tabs.map(([key, label]) => (
-          <button
-            key={key}
-            className={`${styles.tab} ${tab === key ? styles.tabActive : ''}`}
-            onClick={() => setTab(key)}
-          >
-            {label}
-          </button>
-        ))}
       </div>
 
       {tab === 'today' && (
         <div>
+          <div className={styles.headline} style={{ color: me.color }}>
+            {me.name}
+          </div>
+          <div className={styles.subline}>
+            {now.toLocaleDateString('en-US', { weekday: 'long' })} &middot; not you? Tap your square.
+          </div>
           {myGoals.map((g) => {
             const done = checkins.some(
               (c) => c.user_id === me.id && c.goal_id === g.id && c.date === today
             );
             const streak = streakFor(me.id, g.id);
             return (
-              <div key={g.id} className={styles.goalRow}>
-                <div>
-                  <div className={styles.goalName}>{g.name}</div>
-                  {streak > 0 && (
-                    <div className={styles.streak}>{streakLabel(streak)} day streak</div>
-                  )}
-                </div>
-                <button
-                  className={`${styles.toggle} ${done ? styles.toggleOn : ''}`}
-                  style={done ? { background: me.color, borderColor: me.color } : undefined}
-                  onClick={() => toggleToday(g.id)}
+              <button key={g.id} className={styles.goalBtn} onClick={() => toggleToday(g.id)}>
+                <span
+                  className={styles.checkBox}
+                  style={done ? { background: me.color } : undefined}
                 >
-                  {done ? 'Done' : 'Mark'}
-                </button>
-              </div>
+                  {done && <Check />}
+                </span>
+                <span>
+                  <span className={styles.goalName} style={{ display: 'block' }}>
+                    {g.name}
+                  </span>
+                  {streak > 0 && (
+                    <span className={styles.streak} style={{ display: 'block' }}>
+                      {streakLabel(streak)} day streak
+                    </span>
+                  )}
+                </span>
+              </button>
             );
           })}
           {myGoals.length === 0 && (
@@ -277,6 +315,7 @@ export default function Home() {
 
       {tab === 'week' && (
         <div>
+          <div className={styles.pageTitle}>This week</div>
           {users.map((u) => {
             const userCheckins = checkins.filter((c) => c.user_id === u.id);
             const visibleGoals = goals.filter((g) => {
@@ -285,9 +324,14 @@ export default function Home() {
             });
             return (
               <div key={u.id} className={styles.friendCard}>
-                <div className={styles.friendName}>{u.name}</div>
+                <div className={styles.friendName}>
+                  <i className={styles.friendChip} style={{ background: u.color }} />
+                  {u.name}
+                </div>
                 {visibleGoals.length === 0 && (
-                  <div className={styles.subScore}>No active goals</div>
+                  <div className={styles.subScore} style={{ marginTop: 8, fontSize: 13 }}>
+                    No active goals
+                  </div>
                 )}
                 {visibleGoals.map((g) => {
                   const row = allUserGoals.find((x) => x.user_id === u.id && x.goal_id === g.id);
@@ -301,10 +345,9 @@ export default function Home() {
                   return (
                     <div key={g.id} className={styles.goalSub}>
                       <div className={styles.goalSubTop}>
-                        <span>{g.name}</span>
+                        <span className={styles.goalSubName}>{g.name}</span>
                         <span className={styles.subScore}>
-                          {hits}/{target} · {pct}%
-                          {streak > 0 ? ` · ${streakLabel(streak)}d streak` : ''}
+                          {hits}/{target} &middot; {pct}%
                         </span>
                       </div>
                       <div className={styles.barTrack}>
@@ -315,12 +358,15 @@ export default function Home() {
                       </div>
                       <div className={styles.weekStrip}>
                         {week.map((done, i) => (
-                          <div
+                          <i
                             key={i}
                             className={styles.dayDot}
-                            style={{ background: done ? u.color : 'var(--line)' }}
+                            style={{ background: done ? u.color : 'var(--track)' }}
                           />
                         ))}
+                        {streak > 0 && (
+                          <span className={styles.streakRight}>{streakLabel(streak)}d streak</span>
+                        )}
                       </div>
                     </div>
                   );
@@ -333,7 +379,25 @@ export default function Home() {
 
       {tab === 'calendar' && (
         <div>
-          <div className={styles.calMonth}>{monthLabel}</div>
+          <div className={styles.calHead}>
+            <button
+              className={styles.calNav}
+              onClick={() => goMonth(-1)}
+              disabled={calOffset <= -MAX_MONTHS_BACK}
+              aria-label="Previous month"
+            >
+              <Chevron dir="left" />
+            </button>
+            <div className={styles.calMonth}>{monthLabel}</div>
+            <button
+              className={styles.calNav}
+              onClick={() => goMonth(1)}
+              disabled={calOffset >= 0}
+              aria-label="Next month"
+            >
+              <Chevron dir="right" />
+            </button>
+          </div>
           <div className={styles.calLegend}>
             {myGoals.map((g) => (
               <span key={g.id}>
@@ -349,19 +413,21 @@ export default function Home() {
               </div>
             ))}
             {Array.from({ length: startDow }).map((_, i) => (
-              <div key={`e${i}`} className={styles.calEmpty} />
+              <div key={`e${i}`} />
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const d = i + 1;
               const key = dateStr(new Date(year, month, d));
-              const future = d > now.getDate();
+              const isToday = calOffset === 0 && d === now.getDate();
+              const future = calOffset === 0 && d > now.getDate();
               return (
                 <div
                   key={d}
-                  className={`${styles.calCell} ${d === now.getDate() ? styles.calToday : ''}`}
+                  className={`${styles.calCell} ${isToday ? styles.calToday : ''}`}
+                  style={isToday ? { borderColor: me.color } : undefined}
                 >
                   <div className={styles.calDate}>{d}</div>
-                  <div className={styles.calDots}>
+                  <div className={styles.calMarks}>
                     {!future &&
                       myGoals
                         .filter((g) =>
@@ -380,6 +446,7 @@ export default function Home() {
 
       {tab === 'settings' && (
         <div>
+          <div className={styles.pageTitle}>Your goals</div>
           {goals.map((g) => {
             const ug = userGoals.find((x) => x.goal_id === g.id);
             if (!ug) return null;
@@ -389,15 +456,19 @@ export default function Home() {
                 <div className={styles.settingTop}>
                   <div className={styles.goalName}>{g.name}</div>
                   <button
-                    className={`${styles.switch} ${ug.is_on ? styles.switchOn : ''}`}
+                    className={`${styles.switchTrack} ${ug.is_on ? styles.switchOn : ''}`}
                     onClick={() => updateUserGoal(ug.id, { is_on: !ug.is_on })}
-                  />
+                    aria-label={`Turn ${g.name} ${ug.is_on ? 'off' : 'on'}`}
+                  >
+                    <i className={styles.knob} />
+                  </button>
                 </div>
                 <div className={`${styles.settingBody} ${!ug.is_on ? styles.disabled : ''}`}>
                   <div className={styles.stepperRow}>
                     <span>Your target</span>
                     <div className={styles.stepper}>
                       <button
+                        className={styles.stepBtn}
                         onClick={() =>
                           !ug.use_group_default &&
                           updateUserGoal(ug.id, { custom_target: Math.max(1, ug.custom_target - 1) })
@@ -407,6 +478,7 @@ export default function Home() {
                       </button>
                       <span className={styles.stepperVal}>{shownTarget}/7</span>
                       <button
+                        className={styles.stepBtn}
                         onClick={() =>
                           !ug.use_group_default &&
                           updateUserGoal(ug.id, { custom_target: Math.min(7, ug.custom_target + 1) })
@@ -419,6 +491,7 @@ export default function Home() {
                   <label className={styles.defaultRow}>
                     <input
                       type="checkbox"
+                      className={styles.sqCheck}
                       checked={ug.use_group_default}
                       onChange={(e) =>
                         updateUserGoal(ug.id, {
@@ -430,18 +503,25 @@ export default function Home() {
                     Use group default ({g.target_days}/7)
                   </label>
                 </div>
-
               </div>
             );
           })}
-
-          <div className={styles.note}>
-            Turning a goal off only hides it for you.
-          </div>
         </div>
       )}
 
-      <div className={styles.note}>Live data, synced with your group&apos;s database.</div>
+      <nav className={styles.tabbar}>
+        <div className={styles.tabbarInner}>
+          {tabs.map(([key, label]) => (
+            <button
+              key={key}
+              className={`${styles.tab} ${tab === key ? styles.tabActive : ''}`}
+              onClick={() => setTab(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </nav>
     </main>
   );
 }

@@ -1,154 +1,280 @@
 .wrap {
   max-width: 560px;
   margin: 0 auto;
-  padding: 28px 20px 60px;
+  padding: calc(env(safe-area-inset-top, 0px) + 28px) 20px calc(env(safe-area-inset-bottom, 0px) + 110px);
 }
-.h1 {
-  font-family: var(--font-heading, sans-serif);
-  font-weight: 700;
-  font-size: 28px;
-  margin: 0 0 2px;
-}
-.tag {
-  color: var(--sub);
-  font-size: 13px;
-  margin-bottom: 28px;
-}
-.tabs {
+.header {
   display: flex;
-  gap: 6px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--line);
+  justify-content: space-between;
+  align-items: center;
 }
-.tab {
-  background: none;
-  border: none;
-  color: var(--sub);
+.wordmark {
+  font-size: 16px;
   font-weight: 700;
-  font-size: 14px;
-  padding: 8px 4px 10px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-right: 14px;
 }
-.tabActive {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
-}
-.goalRow {
+.avatar {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  padding: 0;
+}
+.headline {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.05;
+  margin: 26px 0 6px;
+}
+.subline {
+  font-size: 14px;
+  color: var(--sub);
+  margin-bottom: 22px;
+}
+.pageTitle {
+  font-size: 34px;
+  font-weight: 600;
+  margin: 22px 0 14px;
+}
+.note {
+  color: var(--sub);
+  font-size: 13px;
+  margin-top: 16px;
+}
+
+/* picker */
+.pickBtn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  border: 2px solid var(--ink);
   padding: 14px 16px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+}
+.pickChip {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+}
+
+/* today */
+.goalBtn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  padding: 16px;
+  margin-bottom: 10px;
+  text-align: left;
+  color: var(--ink);
+}
+.checkBox {
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .goalName {
-  font-weight: 500;
-  font-size: 15px;
+  font-size: 18px;
+  font-weight: 600;
 }
-.toggle {
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--sub);
-  border-radius: 7px;
-  padding: 8px 14px;
+.streak {
   font-size: 13px;
-  cursor: pointer;
-  min-width: 64px;
+  color: var(--sub);
+  margin-top: 2px;
 }
-.toggleOn {
-  background: var(--pass);
-  border-color: var(--pass);
-  color: #fff;
-}
+
+/* week */
 .friendCard {
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 8px;
-}
-.friendName {
-  font-weight: 700;
-  font-size: 15px;
+  border: 2px solid var(--ink);
+  padding: 12px 14px 14px;
   margin-bottom: 10px;
 }
-.goalSub {
-  margin-bottom: 12px;
+.friendName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
 }
-.goalSub:last-child {
-  margin-bottom: 0;
+.friendChip {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+}
+.goalSub {
+  margin-top: 10px;
 }
 .goalSubTop {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
 }
+.goalSubName {
+  font-weight: 500;
+}
 .subScore {
   color: var(--sub);
 }
 .barTrack {
-  height: 5px;
-  background: var(--line);
-  border-radius: 3px;
-  margin-top: 6px;
-  overflow: hidden;
+  height: 8px;
+  background: var(--track);
+  margin-top: 5px;
 }
 .barFill {
-  height: 100%;
-  border-radius: 3px;
+  height: 8px;
 }
 .weekStrip {
   display: flex;
+  align-items: center;
   gap: 4px;
-  margin-top: 6px;
+  margin-top: 5px;
 }
 .dayDot {
   width: 15px;
   height: 15px;
-  border-radius: 4px;
 }
-.settingCard {
+.streakRight {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--sub);
+}
+
+/* calendar */
+.calHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 22px 0 8px;
+}
+.calNav {
+  width: 38px;
+  height: 38px;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.calNav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.calMonth {
+  font-size: 30px;
+  font-weight: 600;
+}
+.calLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--sub);
+  margin-bottom: 14px;
+}
+.calLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.calLegend i {
+  width: 9px;
+  height: 9px;
+  display: inline-block;
+}
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+.calDow {
+  text-align: center;
+  font-size: 11px;
+  color: var(--sub);
+  padding-bottom: 4px;
+}
+.calCell {
+  aspect-ratio: 1;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 8px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.calToday {
+  border-width: 3px;
+  padding: 2px;
+}
+.calDate {
+  font-size: 11px;
+  color: var(--sub);
+}
+.calMarks {
+  display: flex;
+  gap: 2px;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.calMarks i {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+}
+
+/* goals */
+.settingCard {
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  padding: 16px;
+  margin-bottom: 10px;
 }
 .settingTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.switch {
+.switchTrack {
   position: relative;
-  width: 40px;
-  height: 22px;
-  border-radius: 11px;
-  background: var(--line);
-  border: none;
-  cursor: pointer;
+  width: 46px;
+  height: 26px;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  padding: 0;
   flex-shrink: 0;
 }
-.switch::after {
-  content: '';
+.switchOn {
+  background: var(--accent);
+}
+.knob {
   position: absolute;
   top: 2px;
   left: 2px;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  background: var(--panel);
-  transition: transform 0.15s ease;
+  background: var(--ink);
 }
-.switchOn {
-  background: var(--pass);
-}
-.switchOn::after {
-  transform: translateX(18px);
+.switchOn .knob {
+  left: auto;
+  right: 2px;
+  background: #fff;
 }
 .settingBody {
   margin-top: 14px;
@@ -161,212 +287,77 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .stepper {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.stepper button {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: transparent;
+.stepBtn {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--ink);
+  background: var(--panel);
   color: var(--ink);
-  font-size: 15px;
-  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
 }
 .stepperVal {
   font-weight: 700;
-  min-width: 46px;
+  min-width: 34px;
   text-align: center;
 }
 .defaultRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  margin-top: 12px;
+  font-size: 13px;
   color: var(--sub);
 }
-.defaultRow input {
-  accent-color: var(--accent);
-}
-.note {
-  color: var(--sub);
-  font-size: 12px;
-  margin-top: 24px;
-  line-height: 1.6;
-}
-.pickBtn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
+.sqCheck {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ink);
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ink);
-  cursor: pointer;
-  text-align: left;
+  margin: 0;
 }
-.pickDot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
+.sqCheck:checked {
+  background: var(--accent);
 }
-.linkBtn {
+
+/* pinned bottom bar */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--panel);
+  border-top: 2px solid var(--ink);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 10;
+}
+.tabbarInner {
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-around;
+  padding-bottom: 14px;
+}
+.tab {
+  border: 0;
   background: none;
-  border: none;
-  padding: 0;
-  color: var(--accent);
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: underline;
+  font-size: 14px;
+  color: #8a919c;
+  font-weight: 500;
+  padding: 14px 10px 12px;
+  border-bottom: 3px solid transparent;
 }
-.banner {
-  position: relative;
-  color: #fff;
-  border-radius: 12px;
-  padding: 16px 18px 18px;
-  margin-bottom: 16px;
-}
-.bannerLabel {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-.bannerName {
-  font-size: 40px;
-  font-weight: 800;
-  line-height: 1.1;
-  margin-top: 2px;
-}
-.bannerSwitch {
-  position: absolute;
-  top: 14px;
-  right: 16px;
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: #fff;
-  border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.calMonth {
+.tabActive {
+  color: var(--ink);
   font-weight: 700;
-  font-size: 16px;
-  margin-bottom: 8px;
-}
-.calLegend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 11px;
-  color: var(--sub);
-  margin-bottom: 12px;
-}
-.calLegend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.calLegend i {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  display: inline-block;
-}
-.calGrid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-}
-.calDow {
-  text-align: center;
-  font-size: 10px;
-  color: var(--sub);
-  padding-bottom: 4px;
-}
-.calEmpty {
-  aspect-ratio: 1;
-}
-.calCell {
-  aspect-ratio: 1;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-}
-.calToday {
-  border-color: var(--accent);
-  border-width: 2px;
-}
-.calDate {
-  font-size: 10px;
-  color: var(--sub);
-}
-.calDots {
-  display: flex;
-  gap: 2px;
-  margin-top: auto;
-  flex-wrap: wrap;
-}
-.calDots i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-}
-.streak {
-  color: var(--sub);
-  font-size: 12px;
-  margin-top: 2px;
-}
-.editBox {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-.textInput {
-  width: 100%;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 9px 10px;
-  color: var(--ink);
-  font-size: 15px;
-  margin-bottom: 10px;
-}
-.editActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 4px;
-}
-.smallBtn {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--ink);
-  border-radius: 7px;
-  padding: 8px 12px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.smallBtn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.danger {
-  color: #b5482f;
-  border-color: #b5482f;
+  border-bottom-color: var(--accent);
 }
