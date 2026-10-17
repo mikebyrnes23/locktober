@@ -62,8 +62,6 @@ export default function Home() {
   const [checkins, setCheckins] = useState([]); // last 120 days, all users
   const [loading, setLoading] = useState(true);
   const [meName, setMeName] = useState(null);
-  const [newName, setNewName] = useState('');
-  const [newTarget, setNewTarget] = useState(4);
 
   const me = users.find((u) => u.name === meName);
   const userGoals = allUserGoals.filter((ug) => ug.user_id === me?.id);
@@ -172,31 +170,6 @@ export default function Home() {
   async function updateUserGoal(id, patch) {
     await supabase.from('user_goals').update(patch).eq('id', id);
     setAllUserGoals(allUserGoals.map((ug) => (ug.id === id ? { ...ug, ...patch } : ug)));
-  }
-
-  async function addGoal() {
-    const name = newName.trim();
-    if (!name || !me) return;
-    const { data: created } = await supabase
-      .from('goals')
-      .insert({ name, target_days: newTarget })
-      .select();
-    if (!created || created.length === 0) return;
-    const goal = created[0];
-    const { data: ug } = await supabase
-      .from('user_goals')
-      .insert({
-        user_id: me.id,
-        goal_id: goal.id,
-        is_on: true,
-        use_group_default: true,
-        custom_target: newTarget,
-      })
-      .select();
-    setGoals(sortGoals([...goals, goal]));
-    setAllUserGoals([...allUserGoals, ...(ug || [])]);
-    setNewName('');
-    setNewTarget(4);
   }
 
   if (loading) {
@@ -462,32 +435,8 @@ export default function Home() {
             );
           })}
 
-          <div className={styles.settingCard}>
-            <div className={styles.goalName} style={{ marginBottom: 10 }}>
-              Add a goal
-            </div>
-            <input
-              className={styles.textInput}
-              placeholder="e.g. Read 20 pages"
-              value={newName}
-              maxLength={40}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <div className={styles.stepperRow} style={{ marginTop: 10 }}>
-              <span>Group target</span>
-              <div className={styles.stepper}>
-                <button onClick={() => setNewTarget(Math.max(1, newTarget - 1))}>−</button>
-                <span className={styles.stepperVal}>{newTarget}/7</span>
-                <button onClick={() => setNewTarget(Math.min(7, newTarget + 1))}>+</button>
-              </div>
-            </div>
-            <button className={styles.smallBtn} onClick={addGoal} disabled={!newName.trim()}>
-              Add goal
-            </button>
-          </div>
-
           <div className={styles.note}>
-            New goals are added for the whole group. Turning a goal off only hides it for you.
+            Turning a goal off only hides it for you.
           </div>
         </div>
       )}
