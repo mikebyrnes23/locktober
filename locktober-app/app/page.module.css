@@ -361,3 +361,27 @@
   font-weight: 700;
   border-bottom-color: var(--accent);
 }
+
+/* day picker (Today / Yesterday / two days ago) */
+.dayPick {
+  display: flex;
+  margin-bottom: 16px;
+}
+.dayBtn {
+  flex: 1;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  color: var(--ink);
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 500;
+  margin-left: -2px;
+}
+.dayBtn:first-child {
+  margin-left: 0;
+}
+.dayBtnActive {
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+}

@@ -15,6 +15,12 @@ function dateStr(d) {
   return `${y}-${m}-${day}`;
 }
 
+function daysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
 function todayStr() {
   return dateStr(new Date());
 }
@@ -80,6 +86,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [meName, setMeName] = useState(null);
   const [calOffset, setCalOffset] = useState(0); // 0 = this month, -1 = last month, ...
+  const [dayOffset, setDayOffset] = useState(0); // 0 = today, 1 = yesterday, 2 = two days ago
 
   const me = users.find((u) => u.name === meName);
   const userGoals = allUserGoals.filter((ug) => ug.user_id === me?.id);
@@ -139,6 +146,7 @@ export default function Home() {
     setMeName(name);
     setTab('today');
     setCalOffset(0);
+    setDayOffset(0);
     loadAll(name);
   }
 
@@ -169,11 +177,11 @@ export default function Home() {
     return n >= HISTORY_DAYS ? `${HISTORY_DAYS}+` : `${n}`;
   }
 
-  async function toggleToday(goalId) {
+  async function toggleDay(goalId) {
     if (!me) return;
-    const today = todayStr();
+    const date = dateStr(daysAgo(dayOffset));
     const existing = checkins.find(
-      (c) => c.user_id === me.id && c.goal_id === goalId && c.date === today
+      (c) => c.user_id === me.id && c.goal_id === goalId && c.date === date
     );
     if (existing) {
       await supabase.from('checkins').delete().eq('id', existing.id);
@@ -181,7 +189,7 @@ export default function Home() {
     } else {
       const { data } = await supabase
         .from('checkins')
-        .insert({ user_id: me.id, goal_id: goalId, date: today, done: true })
+        .insert({ user_id: me.id, goal_id: goalId, date, done: true })
         .select();
       if (data) setCheckins([...checkins, data[0]]);
     }
@@ -239,7 +247,7 @@ export default function Home() {
   const myGoals = goals.filter((g) =>
     userGoals.find((ug) => ug.goal_id === g.id && ug.is_on)
   );
-  const today = todayStr();
+  const editDate = dateStr(daysAgo(dayOffset));
   const dates = last7Dates();
 
   // calendar setup for the month being viewed
@@ -278,16 +286,33 @@ export default function Home() {
           <div className={styles.headline} style={{ color: me.color }}>
             {me.name}
           </div>
-          <div className={styles.subline}>
-            {now.toLocaleDateString('en-US', { weekday: 'long' })} &middot; not you? Tap your square.
+          <div className={styles.subline} style={{ marginBottom: 14 }}>
+            {daysAgo(dayOffset).toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'short',
+              day: 'numeric',
+            })}
+          </div>
+          <div className={styles.dayPick}>
+            {['Today', 'Yesterday', daysAgo(2).toLocaleDateString('en-US', { weekday: 'short' })].map(
+              (label, i) => (
+                <button
+                  key={i}
+                  className={`${styles.dayBtn} ${dayOffset === i ? styles.dayBtnActive : ''}`}
+                  onClick={() => setDayOffset(i)}
+                >
+                  {label}
+                </button>
+              )
+            )}
           </div>
           {myGoals.map((g) => {
             const done = checkins.some(
-              (c) => c.user_id === me.id && c.goal_id === g.id && c.date === today
+              (c) => c.user_id === me.id && c.goal_id === g.id && c.date === editDate
             );
             const streak = streakFor(me.id, g.id);
             return (
-              <button key={g.id} className={styles.goalBtn} onClick={() => toggleToday(g.id)}>
+              <button key={g.id} className={styles.goalBtn} onClick={() => toggleDay(g.id)}>
                 <span
                   className={styles.checkBox}
                   style={done ? { background: me.color } : undefined}
@@ -316,7 +341,9 @@ export default function Home() {
       {tab === 'week' && (
         <div>
           <div className={styles.pageTitle}>This week</div>
-          {users.map((u) => {
+          {[...users]
+            .sort((a, b) => (a.id === me.id ? -1 : b.id === me.id ? 1 : 0))
+            .map((u) => {
             const userCheckins = checkins.filter((c) => c.user_id === u.id);
             const visibleGoals = goals.filter((g) => {
               const row = allUserGoals.find((x) => x.user_id === u.id && x.goal_id === g.id);
