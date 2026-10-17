@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import styles from './page.module.css';
 
+const GOAL_COLORS = ['#3a5fb5', '#2f6f4f', '#b5482f', '#a3762a', '#6b4fa0'];
 
 function dateStr(d) {
   const y = d.getFullYear();
@@ -30,48 +31,48 @@ export default function Home() {
   const [tab, setTab] = useState('today');
   const [users, setUsers] = useState([]);
   const [goals, setGoals] = useState([]);
-  const [userGoals, setUserGoals] = useState([]); // for ME
-  const [checkins, setCheckins] = useState([]); // last 7 days, all users
+  const [allUserGoals, setAllUserGoals] = useState([]); // everyone's goal settings
+  const [checkins, setCheckins] = useState([]); // this month + last 7 days, all users
   const [loading, setLoading] = useState(true);
   const [meName, setMeName] = useState(null);
 
   const me = users.find((u) => u.name === meName);
+  const userGoals = allUserGoals.filter((ug) => ug.user_id === me?.id);
 
   async function loadAll(who) {
     setLoading(true);
     const [{ data: u }, { data: g }] = await Promise.all([
       supabase.from('users').select('*'),
-      supabase.from('goals').select('*'),
+      supabase.from('goals').select('*').order('name'),
     ]);
     setUsers(u || []);
     setGoals(g || []);
 
+    const { data: ugAll } = await supabase.from('user_goals').select('*');
+    let ugList = ugAll || [];
+
     const myUser = (u || []).find((x) => x.name === who);
-    if (myUser) {
-      const { data: ug } = await supabase
-        .from('user_goals')
-        .select('*')
-        .eq('user_id', myUser.id);
-      if (!ug || ug.length === 0) {
-        const inserts = (g || []).map((goal) => ({
-          user_id: myUser.id,
-          goal_id: goal.id,
-          is_on: true,
-          use_group_default: true,
-          custom_target: goal.target_days,
-        }));
-        const { data: created } = await supabase.from('user_goals').insert(inserts).select();
-        setUserGoals(created || []);
-      } else {
-        setUserGoals(ug);
-      }
+    if (myUser && !ugList.some((x) => x.user_id === myUser.id)) {
+      const inserts = (g || []).map((goal) => ({
+        user_id: myUser.id,
+        goal_id: goal.id,
+        is_on: true,
+        use_group_default: true,
+        custom_target: goal.target_days,
+      }));
+      const { data: created } = await supabase.from('user_goals').insert(inserts).select();
+      ugList = [...ugList, ...(created || [])];
     }
+    setAllUserGoals(ugList);
 
     const dates = last7Dates();
+    const now = new Date();
+    const monthStart = dateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    const rangeStart = monthStart < dates[0] ? monthStart : dates[0];
     const { data: c } = await supabase
       .from('checkins')
       .select('*')
-      .gte('date', dates[0])
+      .gte('date', rangeStart)
       .lte('date', dates[6]);
     setCheckins(c || []);
     setLoading(false);
@@ -99,7 +100,6 @@ export default function Home() {
       localStorage.removeItem('locktober_me');
     } catch (e) {}
     setMeName(null);
-    setUserGoals([]);
   }
 
   async function toggleToday(goalId) {
@@ -122,7 +122,7 @@ export default function Home() {
 
   async function updateUserGoal(id, patch) {
     await supabase.from('user_goals').update(patch).eq('id', id);
-    setUserGoals(userGoals.map((ug) => (ug.id === id ? { ...ug, ...patch } : ug)));
+    setAllUserGoals(allUserGoals.map((ug) => (ug.id === id ? { ...ug, ...patch } : ug)));
   }
 
   if (loading) {
@@ -155,6 +155,22 @@ export default function Home() {
   const today = todayStr();
   const dates = last7Dates();
 
+  // calendar setup (current month)
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startDow = new Date(year, month, 1).getDay();
+  const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const goalColor = (g) => GOAL_COLORS[goals.findIndex((x) => x.id === g.id) % GOAL_COLORS.length];
+
+  const tabs = [
+    ['today', 'Today'],
+    ['week', 'Week'],
+    ['calendar', 'Calendar'],
+    ['settings', 'Goals'],
+  ];
+
   return (
     <main className={styles.wrap}>
       <h1 className={styles.h1}>WinterArc</h1>
@@ -170,13 +186,13 @@ export default function Home() {
       </div>
 
       <div className={styles.tabs}>
-        {['today', 'week', 'settings'].map((t) => (
+        {tabs.map(([key, label]) => (
           <button
-            key={t}
-            className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
-            onClick={() => setTab(t)}
+            key={key}
+            className={`${styles.tab} ${tab === key ? styles.tabActive : ''}`}
+            onClick={() => setTab(key)}
           >
-            {t === 'today' ? 'Today' : t === 'week' ? 'Week' : 'Goals'}
+            {label}
           </button>
         ))}
       </div>
@@ -185,7 +201,7 @@ export default function Home() {
         <div>
           {myGoals.map((g) => {
             const done = checkins.some(
-              (c) => c.user_id === me?.id && c.goal_id === g.id && c.date === today
+              (c) => c.user_id === me.id && c.goal_id === g.id && c.date === today
             );
             return (
               <div key={g.id} className={styles.goalRow}>
@@ -201,7 +217,7 @@ export default function Home() {
             );
           })}
           {myGoals.length === 0 && (
-            <div className={styles.note}>No active goals — turn some on in the Goals tab.</div>
+            <div className={styles.note}>No active goals. Turn some on in the Goals tab.</div>
           )}
         </div>
       )}
@@ -210,15 +226,23 @@ export default function Home() {
         <div>
           {users.map((u) => {
             const userCheckins = checkins.filter((c) => c.user_id === u.id);
+            const visibleGoals = goals.filter((g) => {
+              const row = allUserGoals.find((x) => x.user_id === u.id && x.goal_id === g.id);
+              return !row || row.is_on;
+            });
             return (
               <div key={u.id} className={styles.friendCard}>
                 <div className={styles.friendName}>{u.name}</div>
-                {goals.map((g) => {
+                {visibleGoals.length === 0 && (
+                  <div className={styles.subScore}>No active goals</div>
+                )}
+                {visibleGoals.map((g) => {
+                  const row = allUserGoals.find((x) => x.user_id === u.id && x.goal_id === g.id);
+                  const target = row && !row.use_group_default ? row.custom_target : g.target_days;
                   const week = dates.map((d) =>
                     userCheckins.some((c) => c.goal_id === g.id && c.date === d)
                   );
                   const hits = week.filter(Boolean).length;
-                  const target = g.target_days;
                   const pct = Math.min(100, Math.round((hits / target) * 100));
                   return (
                     <div key={g.id} className={styles.goalSub}>
@@ -249,6 +273,53 @@ export default function Home() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {tab === 'calendar' && (
+        <div>
+          <div className={styles.calMonth}>{monthLabel}</div>
+          <div className={styles.calLegend}>
+            {myGoals.map((g) => (
+              <span key={g.id}>
+                <i style={{ background: goalColor(g) }} />
+                {g.name}
+              </span>
+            ))}
+          </div>
+          <div className={styles.calGrid}>
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+              <div key={i} className={styles.calDow}>
+                {d}
+              </div>
+            ))}
+            {Array.from({ length: startDow }).map((_, i) => (
+              <div key={`e${i}`} className={styles.calEmpty} />
+            ))}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const d = i + 1;
+              const key = dateStr(new Date(year, month, d));
+              const future = d > now.getDate();
+              return (
+                <div
+                  key={d}
+                  className={`${styles.calCell} ${d === now.getDate() ? styles.calToday : ''}`}
+                >
+                  <div className={styles.calDate}>{d}</div>
+                  <div className={styles.calDots}>
+                    {!future &&
+                      myGoals
+                        .filter((g) =>
+                          checkins.some(
+                            (c) => c.user_id === me.id && c.goal_id === g.id && c.date === key
+                          )
+                        )
+                        .map((g) => <i key={g.id} style={{ background: goalColor(g) }} />)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -309,7 +380,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className={styles.note}>Live data — synced with your group&apos;s Supabase database.</div>
+      <div className={styles.note}>Live data, synced with your group&apos;s database.</div>
     </main>
   );
 }

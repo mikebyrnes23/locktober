@@ -261,3 +261,69 @@
   font-size: 12px;
   cursor: pointer;
 }
+.calMonth {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.calLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--sub);
+  margin-bottom: 12px;
+}
+.calLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.calLegend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+.calDow {
+  text-align: center;
+  font-size: 10px;
+  color: var(--sub);
+  padding-bottom: 4px;
+}
+.calEmpty {
+  aspect-ratio: 1;
+}
+.calCell {
+  aspect-ratio: 1;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.calToday {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+.calDate {
+  font-size: 10px;
+  color: var(--sub);
+}
+.calDots {
+  display: flex;
+  gap: 2px;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.calDots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
