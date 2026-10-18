@@ -86,7 +86,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [meName, setMeName] = useState(null);
   const [calOffset, setCalOffset] = useState(0); // 0 = this month, -1 = last month, ...
-  const [dayOffset, setDayOffset] = useState(0); // 0 = today, 1 = yesterday, 2 = two days ago
+  const [dayOffset, setDayOffset] = useState(0); // 0 = today, 1 = yesterday
 
   const me = users.find((u) => u.name === meName);
   const userGoals = allUserGoals.filter((ug) => ug.user_id === me?.id);
@@ -294,17 +294,18 @@ export default function Home() {
             })}
           </div>
           <div className={styles.dayPick}>
-            {['Today', 'Yesterday', daysAgo(2).toLocaleDateString('en-US', { weekday: 'short' })].map(
-              (label, i) => (
-                <button
-                  key={i}
-                  className={`${styles.dayBtn} ${dayOffset === i ? styles.dayBtnActive : ''}`}
-                  onClick={() => setDayOffset(i)}
-                >
-                  {label}
-                </button>
-              )
-            )}
+            {[
+              ['Yesterday', 1],
+              ['Today', 0],
+            ].map(([label, offset]) => (
+              <button
+                key={offset}
+                className={`${styles.dayBtn} ${dayOffset === offset ? styles.dayBtnActive : ''}`}
+                onClick={() => setDayOffset(offset)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
           {myGoals.map((g) => {
             const done = checkins.some(
