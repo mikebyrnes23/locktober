@@ -36,7 +36,9 @@ function last7Dates() {
 }
 
 function sortGoals(list) {
-  return [...list].sort((a, b) => a.name.localeCompare(b.name));
+  return [...list].sort(
+    (a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100) || a.name.localeCompare(b.name)
+  );
 }
 
 // Supabase returns at most 1000 rows per request, so page through the history.
@@ -86,6 +88,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [meName, setMeName] = useState(null);
   const [calOffset, setCalOffset] = useState(0); // 0 = this month, -1 = last month, ...
+  const [calUserId, setCalUserId] = useState(null); // whose calendar is shown (null = me)
   const [dayOffset, setDayOffset] = useState(0); // 0 = today, 1 = yesterday
 
   const me = users.find((u) => u.name === meName);
@@ -147,6 +150,7 @@ export default function Home() {
     setTab('today');
     setCalOffset(0);
     setDayOffset(0);
+    setCalUserId(null);
     loadAll(name);
   }
 
@@ -258,6 +262,11 @@ export default function Home() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startDow = viewDate.getDay();
   const monthLabel = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const viewUser = users.find((u) => u.id === calUserId) || me;
+  const viewGoals = goals.filter((g) => {
+    const row = allUserGoals.find((x) => x.user_id === viewUser.id && x.goal_id === g.id);
+    return !row || row.is_on;
+  });
   const goalColor = (g) => GOAL_COLORS[goals.findIndex((x) => x.id === g.id) % GOAL_COLORS.length];
 
   const tabs = [
@@ -407,6 +416,22 @@ export default function Home() {
 
       {tab === 'calendar' && (
         <div>
+          <div className={styles.viewRow}>
+            <span>Viewing</span>
+            <select
+              className={styles.viewSelect}
+              value={viewUser.id}
+              onChange={(e) => setCalUserId(e.target.value)}
+            >
+              {[...users]
+                .sort((a, b) => (a.id === me.id ? -1 : b.id === me.id ? 1 : 0))
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.id === me.id ? `${u.name} (you)` : u.name}
+                  </option>
+                ))}
+            </select>
+          </div>
           <div className={styles.calHead}>
             <button
               className={styles.calNav}
@@ -427,7 +452,7 @@ export default function Home() {
             </button>
           </div>
           <div className={styles.calLegend}>
-            {myGoals.map((g) => (
+            {viewGoals.map((g) => (
               <span key={g.id}>
                 <i style={{ background: goalColor(g) }} />
                 {g.name}
@@ -452,15 +477,15 @@ export default function Home() {
                 <div
                   key={d}
                   className={`${styles.calCell} ${isToday ? styles.calToday : ''}`}
-                  style={isToday ? { borderColor: me.color } : undefined}
+                  style={isToday ? { borderColor: viewUser.color } : undefined}
                 >
                   <div className={styles.calDate}>{d}</div>
                   <div className={styles.calMarks}>
                     {!future &&
-                      myGoals
+                      viewGoals
                         .filter((g) =>
                           checkins.some(
-                            (c) => c.user_id === me.id && c.goal_id === g.id && c.date === key
+                            (c) => c.user_id === viewUser.id && c.goal_id === g.id && c.date === key
                           )
                         )
                         .map((g) => <i key={g.id} style={{ background: goalColor(g) }} />)}
